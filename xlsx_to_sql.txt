@@ -1,0 +1,414 @@
+import itertools
+import pyodbc
+from openpyxl import load_workbook
+
+# -------------------------------------------------
+# CONFIG — CHANGE THESE ONLY
+# -------------------------------------------------
+XLSX_FILE = "TAR_Attributes_sample.xlsx"
+DATABASE_NAME = "Taneira_MIS"
+TABLE_NAME = "TAR_Attributes"
+SCHEMA_NAME = "dbo"
+BATCH_SIZE = 5000
+
+# -------------------------------------------------
+# DATATYPE RULES
+# -------------------------------------------------
+FLOAT_COLUMNS = {"UCP", "buy_cost", "packaging_cost"}
+VARCHAR500_COLUMNS = {"ag_assigned"}
+DEFAULT_VARCHAR_LENGTH = 100
+
+# -------------------------------------------------
+# READ EXCEL ROWS
+# -------------------------------------------------
+def rows_from_worksheet(xlsx_path):
+    wb = load_workbook(filename=xlsx_path, read_only=True, data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    for row in ws.iter_rows(values_only=True):
+        yield list(row)
+    wb.close()
+
+# -------------------------------------------------
+# CREATE BATCHES
+# -------------------------------------------------
+def batch_iterable(iterable, size):
+    it = iter(iterable)
+    while True:
+        batch = list(itertools.islice(it, size))
+        if not batch:
+            break
+        yield batch
+
+# -------------------------------------------------
+# CREATE SQL SERVER TABLE
+# -------------------------------------------------
+def create_table_sqlserver(conn, schema, table, headers):
+    col_defs = []
+    for col in headers:
+        if col in FLOAT_COLUMNS:
+            col_defs.append(f"[{col}] FLOAT NULL")
+        elif col in VARCHAR500_COLUMNS:
+            col_defs.append(f"[{col}] VARCHAR(500) NULL")
+        else:
+            col_defs.append(f"[{col}] VARCHAR({DEFAULT_VARCHAR_LENGTH}) NULL")
+
+    create_sql = f"""
+    IF NOT EXISTS (
+        SELECT * FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = '{table}'
+    )
+    BEGIN
+        CREATE TABLE [{schema}].[{table}] (
+            {",".join(col_defs)}
+        );
+    END
+    """
+    cursor = conn.cursor()
+    cursor.execute(create_sql)
+    conn.commit()
+    cursor.close()
+
+# -------------------------------------------------
+# FLOAT PARSER
+# -------------------------------------------------
+def try_parse_float(value):
+    if value is None:
+        return None, True
+    if isinstance(value, (int, float)):
+        try:
+            return float(value), True
+        except:
+            return None, False
+    if isinstance(value, str):
+        s = value.strip()
+        if s == "":
+            return None, True
+        s2 = s.replace(",", "")
+        if s2.startswith("(") and s2.endswith(")"):
+            s2 = "-" + s2[1:-1]
+        try:
+            return float(s2), True
+        except:
+            return None, False
+    return None, False
+
+# -------------------------------------------------
+# MAIN IMPORT FUNCTION
+# -------------------------------------------------
+def import_xlsx():
+    print("\n📌 Starting XLSX → SQL Server Import")
+    print("File:", XLSX_FILE)
+    print("Schema.Table:", f"{SCHEMA_NAME}.{TABLE_NAME}")
+    print("Batch Size:", BATCH_SIZE)
+
+    conn_str = (
+        "DRIVER={ODBC Driver 18 for SQL Server};"
+        "SERVER=localhost\\SQLEXPRESS;"
+        f"DATABASE={DATABASE_NAME};"
+        "Trusted_Connection=Yes;"
+        "TrustServerCertificate=Yes;"
+    )
+
+    conn = pyodbc.connect(conn_str, autocommit=False)
+
+    float_fail_counts = {col: 0 for col in FLOAT_COLUMNS}
+    float_total_attempts = {col: 0 for col in FLOAT_COLUMNS}
+
+    try:
+        rows = rows_from_worksheet(XLSX_FILE)
+        first_row = next(rows, None)
+        if first_row is None:
+            print("❌ Excel file has no data!")
+            return
+
+        headers = [str(h).strip() if h else "" for h in first_row]
+
+        # print("\nExcel Columns Detected:")
+        # for h in headers:
+        #     print(" -", h)
+
+        create_table_sqlserver(conn, SCHEMA_NAME, TABLE_NAME, headers)
+
+        def normalize(row):
+            row = list(row or [])
+            if len(row) < len(headers):
+                row.extend([None] * (len(headers) - len(row)))
+
+            out = []
+            for idx, v in enumerate(row[:len(headers)]):
+                col = headers[idx]
+
+                if v is None:
+                    out.append(None)
+                    continue
+                if isinstance(v, str) and v.strip() == "":
+                    out.append(None)
+                    continue
+
+                if col in FLOAT_COLUMNS:
+                    float_total_attempts[col] += 1
+                    fv, ok = try_parse_float(v)
+                    if ok and fv is not None:
+                        out.append(fv)
+                    elif ok and fv is None:
+                        out.append(None)
+                    else:
+                        float_fail_counts[col] += 1
+                        out.append(None)
+                    continue
+
+                out.append(v)
+
+            return tuple(out)
+
+        total = 0
+        batch_no = 0
+
+        for batch in batch_iterable((normalize(r) for r in rows), BATCH_SIZE):
+            batch_no += 1
+            cursor = conn.cursor()
+            placeholders = ", ".join("?" for _ in headers)
+            col_list = ", ".join(f"[{c}]" for c in headers)
+            sql = f"INSERT INTO [{SCHEMA_NAME}].[{TABLE_NAME}] ({col_list}) VALUES ({placeholders})"
+            cursor.fast_executemany = True
+            cursor.executemany(sql, batch)
+            conn.commit()
+            cursor.close()
+
+            total += len(batch)
+            print(f"Inserted batch {batch_no}: {len(batch)} rows (Total: {total})")
+
+        print("\n✅ IMPORT COMPLETE — Total rows inserted:", total)
+
+        # print("\nFloat Conversion Summary:")
+        # for col in FLOAT_COLUMNS:
+        #     print(f" - {col}: {float_fail_counts[col]} non-numeric → NULL")
+
+    finally:
+        conn.close()
+
+# -------------------------------------------------
+# RUN
+# -------------------------------------------------
+if __name__ == "__main__":
+    import_xlsx()
+
+
+import itertools
+import os
+import pyodbc
+from openpyxl import load_workbook
+from dotenv import load_dotenv
+
+load_dotenv()  # Load .env only if it exists
+
+# -------------------------------------------------
+# CONFIG — CHANGE THESE ONLY IF NEEDED
+# -------------------------------------------------
+XLSX_FILE = "TAR_Attributes_sample.xlsx"
+DATABASE_NAME = "Taneira_MIS"
+TABLE_NAME = "TAR_Attributes"
+SCHEMA_NAME = os.getenv("DB_SCHEMA", "dbo")
+BATCH_SIZE = 5000
+
+# -------------------------------------------------
+# DATATYPE RULES
+# -------------------------------------------------
+FLOAT_COLUMNS = {"UCP", "buy_cost", "packaging_cost"}
+VARCHAR500_COLUMNS = {"ag_assigned"}
+DEFAULT_VARCHAR_LENGTH = 100
+
+
+# -------------------------------------------------
+# CONNECTION BUILDER
+# -------------------------------------------------
+def build_connection_string():
+
+    server = os.getenv("DB_SERVER", "localhost\\SQLEXPRESS")
+    database = os.getenv("DB_DATABASE", DATABASE_NAME)
+    user = os.getenv("DB_USER", "")
+    password = os.getenv("DB_PASSWORD", "")
+
+    # If username OR password is missing → use Windows Authentication
+    if user.strip() == "" or password.strip() == "":
+        print("🔐 Using Windows Authentication (Trusted Connection)")
+        return (
+            "DRIVER={ODBC Driver 18 for SQL Server};"
+            f"SERVER={server};"
+            f"DATABASE={database};"
+            "Trusted_Connection=Yes;"
+            "TrustServerCertificate=Yes;"
+        )
+
+    # Else SQL Authentication
+    print(f"🔐 Using SQL Authentication as user '{user}'")
+    return (
+        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"SERVER={server};"
+        f"DATABASE={database};"
+        f"UID={user};"
+        f"PWD={password};"
+        "TrustServerCertificate=Yes;"
+    )
+
+
+# -------------------------------------------------
+# READ EXCEL ROWS
+# -------------------------------------------------
+def rows_from_worksheet(xlsx_path):
+    wb = load_workbook(filename=xlsx_path, read_only=True, data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    for row in ws.iter_rows(values_only=True):
+        yield list(row)
+    wb.close()
+
+
+# -------------------------------------------------
+# CREATE BATCHES
+# -------------------------------------------------
+def batch_iterable(iterable, size):
+    it = iter(iterable)
+    while True:
+        batch = list(itertools.islice(it, size))
+        if not batch:
+            break
+        yield batch
+
+
+# -------------------------------------------------
+# CREATE SQL SERVER TABLE
+# -------------------------------------------------
+def create_table_sqlserver(conn, schema, table, headers):
+    col_defs = []
+    for col in headers:
+        if col in FLOAT_COLUMNS:
+            col_defs.append(f"[{col}] FLOAT NULL")
+        elif col in VARCHAR500_COLUMNS:
+            col_defs.append(f"[{col}] VARCHAR(500) NULL")
+        else:
+            col_defs.append(f"[{col}] VARCHAR({DEFAULT_VARCHAR_LENGTH}) NULL")
+
+    create_sql = f"""
+    IF NOT EXISTS (
+        SELECT * FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = '{table}'
+    )
+    BEGIN
+        CREATE TABLE [{schema}].[{table}] (
+            {",".join(col_defs)}
+        );
+    END
+    """
+    cursor = conn.cursor()
+    cursor.execute(create_sql)
+    conn.commit()
+    cursor.close()
+
+
+# -------------------------------------------------
+# FLOAT PARSER
+# -------------------------------------------------
+def try_parse_float(value):
+    if value is None:
+        return None, True
+    if isinstance(value, (int, float)):
+        try:
+            return float(value), True
+        except:
+            return None, False
+    if isinstance(value, str):
+        s = value.strip()
+        if s == "":
+            return None, True
+        s2 = s.replace(",", "")
+        if s2.startswith("(") and s2.endswith(")"):
+            s2 = "-" + s2[1:-1]
+        try:
+            return float(s2), True
+        except:
+            return None, False
+    return None, False
+
+
+# -------------------------------------------------
+# MAIN IMPORT FUNCTION
+# -------------------------------------------------
+def import_xlsx():
+    print("\n📌 Starting XLSX → SQL Server Import")
+    print("File:", XLSX_FILE)
+    print("Database:", DATABASE_NAME)
+    print("Schema.Table:", f"{SCHEMA_NAME}.{TABLE_NAME}")
+    print("Batch Size:", BATCH_SIZE)
+
+    conn_str = build_connection_string()
+    conn = pyodbc.connect(conn_str, autocommit=False)
+
+    float_fail_counts = {col: 0 for col in FLOAT_COLUMNS}
+    float_total_attempts = {col: 0 for col in FLOAT_COLUMNS}
+
+    try:
+        rows = rows_from_worksheet(XLSX_FILE)
+        first_row = next(rows, None)
+        if first_row is None:
+            print("❌ Excel file has no data!")
+            return
+
+        headers = [str(h).strip() if h else "" for h in first_row]
+
+        create_table_sqlserver(conn, SCHEMA_NAME, TABLE_NAME, headers)
+
+        def normalize(row):
+            row = list(row or [])
+            if len(row) < len(headers):
+                row.extend([None] * (len(headers) - len(row)))
+
+            out = []
+            for idx, v in enumerate(row[:len(headers)]):
+                col = headers[idx]
+
+                if v is None or (isinstance(v, str) and v.strip() == ""):
+                    out.append(None)
+                    continue
+
+                if col in FLOAT_COLUMNS:
+                    float_total_attempts[col] += 1
+                    fv, ok = try_parse_float(v)
+                    if ok and fv is not None:
+                        out.append(fv)
+                    else:
+                        float_fail_counts[col] += 1
+                        out.append(None)
+                    continue
+
+                out.append(v)
+
+            return tuple(out)
+
+        total = 0
+        batch_no = 0
+
+        for batch in batch_iterable((normalize(r) for r in rows), BATCH_SIZE):
+            batch_no += 1
+            cursor = conn.cursor()
+            placeholders = ", ".join("?" for _ in headers)
+            col_list = ", ".join(f"[{c}]" for c in headers)
+            sql = f"INSERT INTO [{SCHEMA_NAME}].[{TABLE_NAME}] ({col_list}) VALUES ({placeholders})"
+            cursor.fast_executemany = True
+            cursor.executemany(sql, batch)
+            conn.commit()
+            cursor.close()
+
+            total += len(batch)
+            print(f"Inserted batch {batch_no}: {len(batch)} rows (Total: {total})")
+
+        print("\n✅ IMPORT COMPLETE — Total rows inserted:", total)
+
+    finally:
+        conn.close()
+
+
+# -------------------------------------------------
+# RUN
+# -------------------------------------------------
+if __name__ == "__main__":
+    import_xlsx()
