@@ -1,257 +1,226 @@
-/* Import fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700;800&display=swap');
-
 :root {
-  /* Abstract Blur Palette */
-  --color-primary-deep: #435b6a; /* Deep Teal/Blue for primary element */
-  --color-primary-light: #527993;
-  --color-accent-vibrant: #70E0CC; /* Vibrant Cyan accent */
-  --color-surface-light: #ffffff;
-  --color-text-dark: #2c3e50;
-  --color-text-light: #fefefe;
-  --color-success: #66bb6a;
-  --color-error: #ff7043;
-  
-  --font-primary: 'Poppins', sans-serif;
-  --font-secondary: 'Inter', sans-serif;
-  --font-heading: 'IBM Plex Sans', sans-serif;
+  --brand: #9a2047;
+  --brand-dark: #6b0f2e;
+  --brand-soft: #fdf2f4;
+  --slate-50: #f8fafc;
+  --slate-200: #e2e8f0;
+  --slate-600: #475569;
+  --slate-900: #0f172a;
+  --white: #ffffff;
 }
 
-/* Global Styles */
 body {
-  font-family: var(--font-secondary) !important;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
   margin: 0;
-  overflow: hidden; /* Hide overflow for the abstract shapes */
-  background: #0d1a29; /* Base dark background */
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', -apple-system, sans-serif;
+  color: var(--slate-900);
+  
+  /* High-End Brand Gradient Background */
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.15) 0%, transparent 70%),
+              linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 50%, var(--brand-dark) 100%);
+  background-attachment: fixed;
 }
 
-/* Abstract Background Shapes (Essential for the "rich" look) */
-body::before, body::after {
-    content: '';
-    position: absolute;
-    width: 40vw; 
-    height: 40vw; 
-    border-radius: 50%;
-    z-index: -1;
-    filter: blur(100px); /* Heavy blur for soft glow */
-    opacity: 0.6;
+.login-container {
+  width: 1000px;
+  max-width: 95%;
+  background: var(--white);
+  border-radius: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); 
+  overflow: hidden;
+  animation: fadeIn 0.8s ease-out;
 }
 
-body::before {
-    top: -10vw;
-    left: -10vw;
-    background: linear-gradient(135deg, #1d3557, #457b9d);
-    animation: moveShape1 15s infinite alternate ease-in-out;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-body::after {
-    bottom: -10vw;
-    right: -10vw;
-    background: linear-gradient(135deg, #a8dadc, #457b9d);
-    animation: moveShape2 18s infinite alternate-reverse ease-in-out;
+.content-split {
+  display: flex;
+  min-height: 580px;
 }
 
-@keyframes moveShape1 {
-    0% { transform: translate(0, 0) scale(1); }
-    100% { transform: translate(150px, 150px) scale(1.1); }
+/* Left Brand Side */
+.brand-section {
+  flex: 1;
+  background-color: var(--brand-soft);
+  padding: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--slate-200);
 }
 
-@keyframes moveShape2 {
-    0% { transform: translate(0, 0) scale(1); }
-    100% { transform: translate(-150px, -150px) scale(0.9); }
-}
-
-
-/* Container (Floating Card) */
-.container {
-  background: var(--color-surface-light); /* Solid light surface */
-  padding: 45px 40px;
-  border-radius: 20px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), /* Stronger shadow for floating effect */
-              0 0 0 1px rgba(0, 0, 0, 0.05);
-  width: 380px;
-  text-align: center;
-  /* subtle 3D tilt on hover */
-  transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.6s; 
+.brand-section {
   position: relative;
-  z-index: 10;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.container:hover {
-  transform: translateY(-8px) rotateX(1deg) rotateY(-1deg);
-  box-shadow: 0 35px 70px rgba(0, 0, 0, 0.65);
+.side-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* This ensures the image covers the area without distorting */
+  z-index: 1;
 }
 
-/* Heading */
-h2 {
-  margin-top: 10px;
-  margin-bottom: 35px;
-  color: var(--color-text-dark);
-  font-family: var(--font-heading) !important;
-  font-size: 34px;
+.brand-inner {
+  position: relative;
+  z-index: 2; /* Ensures text and logo appear on top of the image */
+  background: rgba(255, 255, 255, 0.8); /* Optional: adds a slight overlay to make text readable */
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.brand-inner {
+  text-align: center;
+}
+
+#mainLogo {
+  width: 140px;
+  margin-bottom: 30px;
+}
+
+.brand-text h1 {
+  font-size: 42px;
+  margin: 0;
   font-weight: 800;
-  letter-spacing: -1px;
+  letter-spacing: -1.5px;
+  color: var(--slate-900);
 }
 
-/* Inputs */
-input {
-  width: 90%;
-  padding: 16px;
-  margin-bottom: 18px;
-  border: 1px solid #dcdcdc; 
-  border-radius: 12px;
-  background: #f8f8f8; 
-  color: var(--color-text-dark);
-  font-family: var(--font-secondary);
+.highlight {
+  color: var(--brand);
+}
+
+.brand-text p {
   font-size: 16px;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  color: var(--slate-600);
+  line-height: 1.6;
+  margin-top: 15px;
 }
 
-input::placeholder {
-    color: #a0a0a0;
+/* Right Form Side */
+.form-section {
+  flex: 1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.form-card {
+  width: 100%;
+  max-width: 380px;
+}
+
+.form-header h2 {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.form-header p {
+  color: var(--slate-600);
+  margin-bottom: 32px;
+  font-size: 15px;
+}
+
+/* Input Fields */
+.field {
+  margin-bottom: 20px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--slate-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--slate-200);
+  background-color: var(--slate-50);
+  font-size: 16px;
+  box-sizing: border-box;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 input:focus {
   outline: none;
-  border-color: var(--color-primary-deep);
-  /* Inner shadow effect on focus for subtle depth */
-  box-shadow: 0 0 0 4px rgba(67, 91, 106, 0.15), inset 0 1px 3px rgba(0, 0, 0, 0.1); 
-  background: var(--color-surface-light);
+  border-color: var(--brand);
+  background-color: var(--white);
+  box-shadow: 0 0 0 4px rgba(154, 32, 71, 0.1);
 }
 
 /* Buttons */
+.action-footer {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 button {
-  position: relative; 
-  overflow: hidden;
   width: 100%;
-  padding: 16px; 
-  margin-top: 20px;
-  border: none;
+  padding: 16px;
   border-radius: 12px;
-  font-family: var(--font-secondary);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0.5px;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-  color: var(--color-text-light);
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+  transition: all 0.2s ease;
+  border: none;
 }
 
-button:enabled:hover {
-  transform: translateY(-4px); /* Deeper lift */
-  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+.primary-btn {
+  background-color: var(--brand);
+  color: white;
+  box-shadow: 0 4px 12px rgba(154, 32, 71, 0.2);
 }
 
-/* Button Colors */
-#sendOtpBtn {
-  /* Rich, professional gradient */
-  background: linear-gradient(135deg, var(--color-primary-deep) 0%, var(--color-primary-light) 100%);
+.primary-btn:hover:enabled {
+  background-color: #821b3c;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(154, 32, 71, 0.3);
 }
 
-#sendOtpBtn:enabled:hover {
-  background: linear-gradient(135deg, #3c515f 0%, #4a6d84 100%);
+.secondary-btn {
+  background-color: white;
+  color: var(--brand);
 }
 
-#verifyOtpBtn {
-  background: var(--color-accent-vibrant);
-  color: var(--color-text-dark); /* Dark text on light accent */
+.secondary-btn:hover:enabled {
+  background-color: var(--brand-soft);
 }
 
-#verifyOtpBtn:enabled:hover {
-  background: #5fcfbd;
-}
-
-/* Disabled State */
 button:disabled {
-  background: #e0e0e0 !important;
-  color: #a0a0a0 !important;
-  cursor: not-allowed !important;
-  opacity: 1;
-  transform: none !important;
-  box-shadow: none !important;
+  background-color: var(--slate-200) !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed;
 }
 
-/* Message */
 .message {
-  margin-top: 25px;
-  padding: 12px;
-  border-radius: 8px;
-  font-family: var(--font-secondary);
-  font-weight: 600;
+  margin-top: 20px;
+  font-size: 14px;
+  text-align: center;
   min-height: 24px;
-  text-align: center;
-  border-left: 5px solid transparent; /* Strong accent line for feedback */
-  transition: all 0.3s ease-in-out;
+  font-weight: 500;
 }
 
-.message.success {
-  color: var(--color-success);
-  background-color: #e8f5e9; 
-  border-left-color: var(--color-success);
-}
-
-.message.error {
-  color: var(--color-error);
-  background-color: #fff3e0;
-  border-left-color: var(--color-error);
-}
-
-/* Company Header */
-.company-header {
-  text-align: center;
-  margin-bottom: 25px;
-}
-
-.company-logo {
-  width: 110px; 
-  height: 130px;
-  object-fit: contain;
-  /* Filter to make a dark logo visible and match the theme */
-  filter: drop-shadow(0 0 5px rgba(0,0,0,0.1));
-}
-
-/* --- Loading Spinner CSS (Integrated) --- */
-
-.loading {
-    padding-right: 40px !important; 
-    pointer-events: none !important;
-    position: relative;
-    color: transparent !important; 
-    transition: none !important;
-}
-
-.loading::after {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    top: 50%;
-    right: 15px;
-    margin-top: -10px;
-    border-radius: 50%;
-    border: 3px solid rgba(255, 255, 255, 0.4);
-    /* Spinner color matches the button background for seamless look */
-    border-top-color: var(--color-text-light); 
-    animation: spin 0.8s ease-in-out infinite;
-    -webkit-animation: spin 0.8s ease-in-out infinite;
-}
-
-/* Specific spinner color for the Verify button (which has dark text) */
-#verifyOtpBtn.loading::after {
-    border: 3px solid rgba(0, 0, 0, 0.4);
-    border-top-color: var(--color-text-dark);
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-@-webkit-keyframes spin {
-  to { -webkit-transform: rotate(360deg); }
-}
+.message.error { color: #be123c; }
+.message.success { color: #15803d; }
